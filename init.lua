@@ -92,14 +92,14 @@ do
   -- Enable faster startup by caching compiled Lua modules
   vim.loader.enable()
 
-  -- Set <space> as the leader key
+  -- Set <comma> as the leader key
   -- See `:help mapleader`
   --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
-  vim.g.mapleader = ' '
-  vim.g.maplocalleader = ' '
+  vim.g.mapleader = ','
+  vim.g.maplocalleader = ','
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -171,6 +171,9 @@ do
   -- instead raise a dialog asking if you wish to save the current file(s)
   -- See `:help 'confirm'`
   vim.o.confirm = true
+
+  -- Open files with all folds open; treesitter folds are enabled in SECTION 9
+  vim.o.foldlevelstart = 99
 end
 
 -- ============================================================
@@ -233,6 +236,12 @@ do
   vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
   vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
   vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+  vim.keymap.set('i', 'jj', '<ESC>', { silent = true })
+  vim.keymap.set('n', '<leader>v', '<C-w>v', { silent = true, desc = 'Split [V]ertically' })
+  vim.keymap.set('n', '<leader>s', '<C-w>s', { silent = true, desc = '[S]plit horizontally' })
+  vim.keymap.set('n', '<space>', 'za', { silent = true, desc = 'Toggle fold' })
+  vim.keymap.set('n', '<leader>d', '<Cmd>Neotree toggle<CR>', { silent = true, desc = 'Toggle Neo-tree' })
 
   -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
   -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -423,18 +432,10 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
-  ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
-  }
-
-  -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  -- base16-ocean, matching the palette pinned in Ghostty's config.
+  vim.pack.add { gh 'RRethy/nvim-base16' }
+  vim.cmd.colorscheme 'base16-ocean'
+  vim.cmd.hi 'Comment gui=none'
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -734,9 +735,12 @@ do
   ---@type table<string, vim.lsp.Config>
   local servers = {
     -- clangd = {},
-    -- gopls = {},
-    -- pyright = {},
-    -- tsc = {},
+    bashls = {}, -- runs shellcheck on shell scripts
+    gopls = {},
+    pyright = {},
+    ruff = {}, -- Python linting and formatting
+    terraformls = {},
+    ts_ls = {},
     --
     -- Some languages (like rust) have entire language plugins that can be useful:
     --    https://github.com/mrcjkb/rustaceanvim
@@ -803,7 +807,7 @@ do
   -- You can press `g?` for help in this menu.
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
-    -- You can add other tools here that you want Mason to install
+    'shfmt', -- bashls formats shell scripts with it
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -826,8 +830,16 @@ do
     format_on_save = function(bufnr)
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
+        lua = true, -- stylua
+        python = true, -- ruff
+        sh = true, -- bashls (shfmt)
+        bash = true,
+        go = true, -- gopls
+        terraform = true, -- terraformls
+        javascript = true, -- ts_ls
+        typescript = true,
+        javascriptreact = true,
+        typescriptreact = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 500 }
@@ -965,8 +977,8 @@ do
 
     -- Enable treesitter based folds
     -- For more info on folds see `:help folds`
-    -- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-    -- vim.wo.foldmethod = 'expr'
+    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+    vim.wo.foldmethod = 'expr'
 
     -- Check if treesitter indentation is available for this language, and if so enable it
     -- in case there is no indent query, the indentexpr will fallback to the vim's built in one
@@ -1023,7 +1035,7 @@ do
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
   -- For independent modules, uncomment the convenience loader:
-  -- require 'custom.plugins'
+  require 'custom.plugins'
   --
   -- `custom.plugins` automatically loads files from that directory, but their
   -- order is unspecified. If plugins depend on each other, keep them in the same
